@@ -1,0 +1,21 @@
+session_name: lmbatbot-rust
+shell_command_before: clear
+start_directory: .
+windows:
+  - window_name: editor
+    suppress_history: true
+    panes:
+      - shell_command:
+          - nvim src/main.rs
+  - window_name: control
+    layout: even-horizontal
+    panes:
+      - shell_command:
+          - clear
+        focus: true
+      - ./dev.sh
+  - window_name: mongodb
+    panes:
+      - shell_command:
+          - cmd: docker exec -it lmbatbot-rust-mongodb-1 mongo
+            enter: false
