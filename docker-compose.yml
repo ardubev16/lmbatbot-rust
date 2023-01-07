@@ -8,6 +8,7 @@ services:
       TELOXIDE_TOKEN: ${TELEGRAM_TOKEN}
       MONGO_USERNAME: ${MONGO_USERNAME}
       MONGO_PASSWORD: ${MONGO_PASSWORD}
+      RUST_LOG: info
   mongodb:
     image: mongo:4.4.6
     restart: always

@@ -19,8 +19,10 @@ COPY ./src ./src
 RUN rm ./target/release/deps/lmbatbot_rust*
 RUN cargo build --release
 
-FROM debian:buster-slim
-WORKDIR /app
-COPY --from=builder /lmbatbot-rust/target/release/lmbatbot-rust .
-
-CMD ["./lmbatbot-rust"]
+CMD ["./target/release/lmbatbot-rust"]
+# FROM debian:buster-slim
+# WORKDIR /app
+# RUN apt-get update && apt-get install -y libssl-dev && rm -rf /var/lib/apt/lists/*
+# COPY --from=builder /lmbatbot-rust/target/release/lmbatbot-rust .
+#
+# CMD ["./lmbatbot-rust"]
