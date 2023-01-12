@@ -1,4 +1,8 @@
-use teloxide::{prelude::*, utils::command::BotCommands};
+use teloxide::{dispatching::UpdateHandler, prelude::*, RequestError};
+mod db;
+mod md_escape;
+mod tag_group;
+mod utils;
 
 #[tokio::main]
 async fn main() {
@@ -7,38 +11,25 @@ async fn main() {
 
     let bot = Bot::from_env();
 
-    Command::repl(bot, handler).await;
+    Dispatcher::builder(bot, schema())
+        // Here you specify initial dependencies that all handlers will receive; they can be
+        // database connections, configurations, and other auxiliary arguments. It is similar to
+        // `actix_web::Extensions`.
+        // .dependencies(dptree::deps![parameters])
+        // If no handler succeeded to handle an update, this closure will be called.
+        .default_handler(|upd| async move {
+            log::warn!("Unhandled update: {:?}", upd);
+        })
+        // If the dispatcher fails for some reason, execute this handler.
+        .error_handler(LoggingErrorHandler::with_custom_text(
+            "An error has occurred in the dispatcher",
+        ))
+        .enable_ctrlc_handler()
+        .build()
+        .dispatch()
+        .await;
 }
 
-#[derive(BotCommands, Clone)]
-#[command(rename_rule = "lowercase", description = "Tag group commands:")]
-enum Command {
-    #[command(description = "Display this message")]
-    Help,
-    #[command(description = "Lists available tags")]
-    TagList,
-    #[command(
-        description = "Adds a tag group",
-        // FIXME: newline separator doesn't seem to work, probably will have to use a custom parser
-        parse_with = "split",
-        separator = "\n"
-    )]
-    TagAdd(String, String, String),
-    #[command(description = "Deletes a tag group")]
-    TagDelete(String),
-}
-
-async fn handler(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
-    let answer = match cmd {
-        Command::Help => Command::descriptions().to_string(),
-        Command::TagList => "tag list".to_string(),
-        Command::TagAdd(tag, text, description) => {
-            format!("tag add: {} {} {}", tag, text, description)
-        }
-        Command::TagDelete(tag) => format!("tag delete: {}", tag),
-    };
-
-    bot.send_message(msg.chat.id, answer).await?;
-
-    Ok(())
+fn schema() -> UpdateHandler<RequestError> {
+    dptree::entry().branch(tag_group::handler())
 }
