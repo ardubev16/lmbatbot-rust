@@ -1,22 +1,42 @@
 use teloxide::utils::command::ParseError;
 
-pub fn parse_3_nl_args(
+pub fn parse_tagadd_args(
     input: String,
-) -> Result<(String, String, String), ParseError> {
-    let args = input.split('\n').collect::<Vec<_>>();
+) -> Result<(String, String, Vec<String>), ParseError> {
+    let args = input
+        .split('\n')
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .collect::<Vec<_>>();
     match args.len() {
         3 => {
-            if args[0].is_empty() || args[1].is_empty() || args[2].is_empty() {
-                Err(ParseError::Custom("Arguments can't be empty".into()))
+            let (group, emoji, names) =
+                (args[0].clone(), args[1].clone(), args[2].clone());
+            Ok((
+                group,
+                emoji,
+                names
+                    .split(' ')
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_string)
+                    .collect(),
+            ))
+        }
+        n_args => {
+            if n_args > 3 {
+                Err(ParseError::TooManyArguments {
+                    expected: 3,
+                    found: n_args,
+                    message: "Too many arguments".into(),
+                })
             } else {
-                Ok((
-                    args[0].to_string(),
-                    args[1].to_string(),
-                    args[2].to_string(),
-                ))
+                Err(ParseError::TooFewArguments {
+                    expected: 3,
+                    found: n_args,
+                    message: "Too few arguments".into(),
+                })
             }
         }
-        _ => Err(ParseError::Custom("Invalid number of arguments".into())),
     }
 }
 
@@ -26,12 +46,24 @@ mod test {
 
     #[test]
     fn test_parse_3_nl_args() {
-        assert!(parse_3_nl_args("a".into()).is_err());
-        assert!(parse_3_nl_args("a\nb".into()).is_err());
-        assert!(parse_3_nl_args("\n\n".into()).is_err());
+        assert!(parse_tagadd_args("a".into()).is_err());
+        assert!(parse_tagadd_args("a\nb".into()).is_err());
+        assert!(parse_tagadd_args("\n\n".into()).is_err());
         assert_eq!(
-            parse_3_nl_args("a\nb\nc".into()).unwrap(),
-            ("a".into(), "b".into(), "c".into())
+            parse_tagadd_args("a\nb\n\nc".into()).unwrap(),
+            ("a".into(), "b".into(), vec!["c".into()])
+        );
+        assert_eq!(
+            parse_tagadd_args("a\nb\nc b".into()).unwrap(),
+            ("a".into(), "b".into(), vec!["c".into(), "b".into()])
+        );
+        assert_eq!(
+            parse_tagadd_args("a\nb\nc ".into()).unwrap(),
+            ("a".into(), "b".into(), vec!["c".into()])
+        );
+        assert_eq!(
+            parse_tagadd_args("a\nb\nc  d".into()).unwrap(),
+            ("a".into(), "b".into(), vec!["c".into(), "d".into()])
         );
     }
 }

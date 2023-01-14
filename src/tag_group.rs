@@ -1,6 +1,7 @@
 use crate::md_escape;
 use crate::{db, utils};
 use mongodb::bson::doc;
+use mongodb::options::UpdateOptions;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use teloxide::{
@@ -31,15 +32,15 @@ enum GroupCommands {
     TagList,
     #[command(
         description = "Adds a tag group",
-        parse_with = utils::parse_3_nl_args,
+        parse_with = utils::parse_tagadd_args,
     )]
     TagAdd {
-        name: String,
+        group: String,
         emoji: String,
-        tags: String,
+        names: Vec<String>,
     },
     #[command(description = "Deletes a tag group")]
-    TagDelete { name: String },
+    TagDelete { group: String },
 }
 
 async fn taglist(bot: Bot, msg: Message) -> ResponseResult<()> {
@@ -66,6 +67,7 @@ async fn taglist(bot: Bot, msg: Message) -> ResponseResult<()> {
 
     bot.send_message(msg.chat.id, text)
         .parse_mode(ParseMode::MarkdownV2)
+        .disable_notification(true)
         .await?;
 
     Ok(())
@@ -74,20 +76,71 @@ async fn taglist(bot: Bot, msg: Message) -> ResponseResult<()> {
 async fn tagadd(
     bot: Bot,
     msg: Message,
-    name: String,
+    group: String,
     emoji: String,
-    tags: String,
+    names: Vec<String>,
 ) -> ResponseResult<()> {
-    // TODO: tagadd
-    bot.send_message(msg.chat.id, "tagadd Not implemented yet")
+    let collection = get_collection();
+
+    let group = format!("#{}", group);
+    let names = names
+        .iter()
+        .map(|s| s.trim_start_matches('@').to_owned())
+        .collect::<Vec<_>>();
+
+    let res = collection
+        .update_one(
+            doc! { "chat_id": msg.chat.id.0, "group": &group},
+            doc! {
+                "$set": {"emoji": emoji, "names": names},
+            },
+            UpdateOptions::builder().upsert(true).build(),
+        )
+        .await;
+
+    let text = match res {
+        Ok(res) if res.matched_count == 1 => {
+            format!("Updated group {}.", group)
+        }
+        Ok(_) => format!("Added group {}.", group),
+        Err(_) => "ERROR: Something went wrong.".into(),
+    };
+
+    bot.send_message(msg.chat.id, text)
+        .disable_notification(true)
         .await?;
 
     Ok(())
 }
 
-async fn tagdelete(bot: Bot, msg: Message, name: String) -> ResponseResult<()> {
-    // TODO: tagdelete
-    bot.send_message(msg.chat.id, "tagdelete Not implemented yet")
+async fn tagdelete(
+    bot: Bot,
+    msg: Message,
+    group: String,
+) -> ResponseResult<()> {
+    let collection = get_collection();
+
+    let group = format!("#{}", group);
+    let res = collection
+        .delete_one(
+            doc! {
+                "chat_id": msg.chat.id.0,
+                "group": &group
+            },
+            None,
+        )
+        .await;
+
+    let text = match res {
+        Ok(res) if res.deleted_count == 1 => {
+            format!("Deleted group {}.", group)
+        }
+        Ok(_) => format!("WARNING: Group {} not found!", group),
+        Err(_) => "ERROR: Something went wrong!".into(),
+    };
+
+    bot.send_message(msg.chat.id, text)
+        .disable_notification(true)
         .await?;
 
     Ok(())
@@ -158,6 +211,7 @@ async fn tag_handler(bot: Bot, msg: Message) -> ResponseResult<()> {
 
     bot.send_message(msg.chat.id, text)
         .parse_mode(ParseMode::MarkdownV2)
+        .disable_notification(true)
         .await?;
     bot.delete_message(msg.chat.id, msg.id).await?;
 
@@ -171,10 +225,12 @@ async fn command_handler(
 ) -> ResponseResult<()> {
     match cmd {
         GroupCommands::TagList => taglist(bot, msg).await,
-        GroupCommands::TagAdd { name, emoji, tags } => {
-            tagadd(bot, msg, name, emoji, tags).await
-        }
-        GroupCommands::TagDelete { name } => tagdelete(bot, msg, name).await,
+        GroupCommands::TagAdd {
+            group,
+            emoji,
+            names,
+        } => tagadd(bot, msg, group, emoji, names).await,
+        GroupCommands::TagDelete { group } => tagdelete(bot, msg, group).await,
     }
 }
 
