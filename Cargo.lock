@@ -831,6 +831,7 @@ dependencies = [
  "log",
  "mongodb",
  "pretty_env_logger",
+ "rand",
  "serde",
  "teloxide",
  "tokio",

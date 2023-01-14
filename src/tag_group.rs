@@ -135,8 +135,8 @@ async fn tagdelete(
         Ok(res) if res.deleted_count == 1 => {
             format!("Deleted group {}.", group)
         }
-        Ok(_) => format!("WARNING: Group {} not found!", group),
-        Err(_) => "ERROR: Something went wrong!".into(),
+        Ok(_) => format!("WARNING: Group {} not found.", group),
+        Err(_) => "ERROR: Something went wrong.".into(),
     };
 
     bot.send_message(msg.chat.id, text)
