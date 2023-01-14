@@ -155,14 +155,14 @@ async fn tag_handler(bot: Bot, msg: Message) -> ResponseResult<()> {
         .expect("Failed to parse entities")
         .iter()
         .filter(|entity| matches!(entity.kind(), MessageEntityKind::Hashtag))
-        .map(|entity| entity.text())
+        .map(|entity| entity.text().to_string())
         .collect::<Vec<_>>();
 
     let mut found_groups = collection
         .find(
             doc! {
                 "chat_id": msg.chat.id.0,
-                "group": { "$in": tags },
+                "group": { "$in": &tags },
             },
             None,
         )
@@ -194,26 +194,17 @@ async fn tag_handler(bot: Bot, msg: Message) -> ResponseResult<()> {
         .collect::<Vec<_>>()
         .join(" ");
 
-    // FIXME: find a way to get message text formatted with markdown
-    let content = msg.text().unwrap();
-
-    let text = format!(
-        "{} @{}\n\
-         {}\n\
-         \n\
-         {}",
-        emojis.join(""),
-        md_escape::italic(sender.as_str()),
-        // FIXME: remove this after fixing the previous FIXM
-        markdown::escape(content),
-        md_escape::italic(tag_list.as_str()),
+    let text = md_escape::italic(
+        format!("{} {}\n\n{}", emojis.join(""), tags.join(" "), tag_list)
+            .as_str(),
     );
 
+    // TODO: check if the tagged users get notified with "disable_notification: true"
     bot.send_message(msg.chat.id, text)
         .parse_mode(ParseMode::MarkdownV2)
         .disable_notification(true)
+        .reply_to_message_id(msg.id)
         .await?;
-    bot.delete_message(msg.chat.id, msg.id).await?;
 
     Ok(())
 }
