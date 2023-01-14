@@ -209,30 +209,25 @@ async fn tag_handler(bot: Bot, msg: Message) -> ResponseResult<()> {
     Ok(())
 }
 
-async fn command_handler(
-    bot: Bot,
-    msg: Message,
-    cmd: GroupCommands,
-) -> ResponseResult<()> {
-    match cmd {
-        GroupCommands::TagList => taglist(bot, msg).await,
-        GroupCommands::TagAdd {
-            group,
-            emoji,
-            names,
-        } => tagadd(bot, msg, group, emoji, names).await,
-        GroupCommands::TagDelete { group } => tagdelete(bot, msg, group).await,
-    }
-}
-
 pub fn handler() -> UpdateHandler<RequestError> {
+    use dptree::case;
+
+    let command_handler = dptree::entry()
+        .filter_command::<GroupCommands>()
+        .branch(case![GroupCommands::TagList].endpoint(taglist))
+        .branch(
+            case![GroupCommands::TagAdd {
+                group,
+                emoji,
+                names
+            }]
+            .endpoint(tagadd),
+        )
+        .branch(case![GroupCommands::TagDelete { group }].endpoint(tagdelete));
+
     Update::filter_message()
         .filter(|msg: Message| msg.chat.is_group() || msg.chat.is_supergroup())
-        .branch(
-            dptree::entry()
-                .filter_command::<GroupCommands>()
-                .endpoint(command_handler),
-        )
+        .branch(command_handler)
         .branch(
             dptree::filter(|msg: Message| {
                 msg.parse_entities().unwrap().iter().any(|entity| {
