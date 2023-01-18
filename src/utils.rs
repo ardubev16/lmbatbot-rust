@@ -1,4 +1,8 @@
-use teloxide::utils::command::ParseError;
+use teloxide::{
+    prelude::*,
+    types::ParseMode,
+    utils::{command::ParseError, markdown},
+};
 
 pub fn parse_tagadd_args(
     input: String,
@@ -38,6 +42,22 @@ pub fn parse_tagadd_args(
             }
         }
     }
+}
+
+pub async fn send_usage(
+    bot: &Bot,
+    chat_id: ChatId,
+    usage: &str,
+) -> ResponseResult<Message> {
+    let usage = format!(
+        "{}\n\n{}",
+        markdown::bold("Usage:"),
+        markdown::code_block(usage),
+    );
+    bot.send_message(chat_id, usage)
+        .parse_mode(ParseMode::MarkdownV2)
+        .disable_notification(true)
+        .await
 }
 
 #[cfg(test)]
