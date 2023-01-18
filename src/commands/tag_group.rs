@@ -1,7 +1,9 @@
-use crate::md_escape;
-use crate::{db, utils};
-use mongodb::bson::doc;
-use mongodb::options::UpdateOptions;
+use crate::{
+    db, md_escape,
+    types::{HandlerError, HandlerResult},
+    utils,
+};
+use mongodb::{bson::doc, options::UpdateOptions};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use teloxide::{
@@ -9,7 +11,6 @@ use teloxide::{
     prelude::*,
     types::{MessageEntityKind, ParseMode},
     utils::{command::BotCommands, markdown},
-    RequestError,
 };
 
 // TODO: use user_id instead of username, then use "markdown::user_mention"
@@ -43,17 +44,16 @@ enum GroupCommands {
     TagDelete { group: String },
 }
 
-async fn taglist(bot: Bot, msg: Message) -> ResponseResult<()> {
+async fn taglist(bot: Bot, msg: Message) -> HandlerResult {
     let collection = get_collection();
 
     let mut tags = collection
         .find(doc! { "chat_id": msg.chat.id.0 }, None)
-        .await
-        .expect("Failed to execute find.");
+        .await?;
 
     let mut text = vec![markdown::bold("Groups:")];
-    while tags.advance().await.expect("Failed to get next tag.") {
-        let tag = tags.deserialize_current().unwrap();
+    while tags.advance().await? {
+        let tag = tags.deserialize_current()?;
         let names = tag.names.join(", ");
         text.push(markdown::escape(
             format!("{} {}: {}", tag.emoji, tag.group, names).as_str(),
@@ -79,7 +79,7 @@ async fn tagadd(
     group: String,
     emoji: String,
     names: Vec<String>,
-) -> ResponseResult<()> {
+) -> HandlerResult {
     let collection = get_collection();
 
     let group = format!("#{}", group);
@@ -96,14 +96,11 @@ async fn tagadd(
             },
             UpdateOptions::builder().upsert(true).build(),
         )
-        .await;
+        .await?;
 
-    let text = match res {
-        Ok(res) if res.matched_count == 1 => {
-            format!("Updated group {}.", group)
-        }
-        Ok(_) => format!("Added group {}.", group),
-        Err(_) => "ERROR: Something went wrong.".into(),
+    let text = match res.matched_count {
+        0 => format!("Added group {}.", group),
+        _ => format!("Updated group {}.", group),
     };
 
     bot.send_message(msg.chat.id, text)
@@ -113,11 +110,7 @@ async fn tagadd(
     Ok(())
 }
 
-async fn tagdelete(
-    bot: Bot,
-    msg: Message,
-    group: String,
-) -> ResponseResult<()> {
+async fn tagdelete(bot: Bot, msg: Message, group: String) -> HandlerResult {
     let collection = get_collection();
 
     let group = format!("#{}", group);
@@ -129,14 +122,11 @@ async fn tagdelete(
             },
             None,
         )
-        .await;
+        .await?;
 
-    let text = match res {
-        Ok(res) if res.deleted_count == 1 => {
-            format!("Deleted group {}.", group)
-        }
-        Ok(_) => format!("WARNING: Group {} not found.", group),
-        Err(_) => "ERROR: Something went wrong.".into(),
+    let text = match res.deleted_count {
+        1 => format!("Deleted group {}.", group),
+        _ => format!("WARNING: Group {} not found.", group),
     };
 
     bot.send_message(msg.chat.id, text)
@@ -146,7 +136,7 @@ async fn tagdelete(
     Ok(())
 }
 
-async fn tag_handler(bot: Bot, msg: Message) -> ResponseResult<()> {
+async fn tag_handler(bot: Bot, msg: Message) -> HandlerResult {
     let collection = get_collection();
 
     // NOTE: tags should not be empty because this handler is only called if there are tags
@@ -166,24 +156,19 @@ async fn tag_handler(bot: Bot, msg: Message) -> ResponseResult<()> {
             },
             None,
         )
-        .await
-        .unwrap();
+        .await?;
 
     let mut emojis = Vec::new();
     let mut tag_list = HashSet::new();
-    while found_groups
-        .advance()
-        .await
-        .expect("Failed to get next group.")
-    {
-        let group = found_groups.deserialize_current().unwrap();
+    while found_groups.advance().await? {
+        let group = found_groups.deserialize_current()?;
         emojis.push(group.emoji);
         group.names.into_iter().for_each(|name| {
             tag_list.insert(name);
         });
     }
     if tag_list.is_empty() {
-        return Ok(());
+        return Err(HandlerError::Custom("No tags found.".into()));
     }
 
     let sender = msg.from().unwrap().username.as_ref().expect("No username");
@@ -209,7 +194,7 @@ async fn tag_handler(bot: Bot, msg: Message) -> ResponseResult<()> {
     Ok(())
 }
 
-pub fn handler() -> UpdateHandler<RequestError> {
+pub fn handler() -> UpdateHandler<HandlerError> {
     use dptree::case;
 
     let command_handler = dptree::entry()

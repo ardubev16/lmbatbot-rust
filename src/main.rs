@@ -1,8 +1,11 @@
 use commands::{fun, tag_group};
-use teloxide::{dispatching::UpdateHandler, prelude::*, RequestError};
+use teloxide::{dispatching::UpdateHandler, prelude::*};
+use types::HandlerError;
+
 mod commands;
 mod db;
 mod md_escape;
+mod types;
 mod utils;
 
 #[tokio::main]
@@ -31,7 +34,7 @@ async fn main() {
         .await;
 }
 
-fn schema() -> UpdateHandler<RequestError> {
+fn schema() -> UpdateHandler<HandlerError> {
     dptree::entry()
         .branch(tag_group::handler())
         .branch(fun::handler())

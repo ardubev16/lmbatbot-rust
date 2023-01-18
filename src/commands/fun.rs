@@ -1,8 +1,9 @@
+use crate::types::{HandlerError, HandlerResult};
 use rand::seq::SliceRandom;
 use std::env;
 use teloxide::{
     dispatching::UpdateHandler, macros::BotCommands, prelude::*,
-    requests::ResponseResult, types::InputFile, RequestError,
+    types::InputFile,
 };
 
 #[derive(BotCommands, Clone)]
@@ -14,7 +15,7 @@ enum FunCommands {
     Bocchi,
 }
 
-async fn bocchi(bot: Bot, msg: Message) -> ResponseResult<()> {
+async fn bocchi(bot: Bot, msg: Message) -> HandlerResult {
     let sticker_set_name =
         env::var("STICKER_SET_NAME").expect("STICKER_SET_NAME not set");
     let sticker_set = bot.get_sticker_set(sticker_set_name).await?;
@@ -30,7 +31,7 @@ async fn bocchi(bot: Bot, msg: Message) -> ResponseResult<()> {
     Ok(())
 }
 
-pub fn handler() -> UpdateHandler<RequestError> {
+pub fn handler() -> UpdateHandler<HandlerError> {
     Update::filter_message()
         .filter_command::<FunCommands>()
         .branch(dptree::case![FunCommands::Bocchi].endpoint(bocchi))
