@@ -37,7 +37,7 @@ enum GroupCommands {
     TagDelete { group: String },
 }
 
-async fn taglist(bot: Bot, msg: Message) -> HandlerResult {
+async fn taglist(bot: Bot, msg: Message) -> HandlerResult<()> {
     let collection = get_collection();
 
     let mut tags = collection
@@ -72,7 +72,7 @@ async fn tagadd(
     group: String,
     emoji: String,
     names: Vec<String>,
-) -> HandlerResult {
+) -> HandlerResult<()> {
     let collection = get_collection();
 
     let group = format!("#{}", group);
@@ -103,7 +103,7 @@ async fn tagadd(
     Ok(())
 }
 
-async fn tagdelete(bot: Bot, msg: Message, group: String) -> HandlerResult {
+async fn tagdelete(bot: Bot, msg: Message, group: String) -> HandlerResult<()> {
     let collection = get_collection();
 
     let group = format!("#{}", group);
@@ -129,7 +129,7 @@ async fn tagdelete(bot: Bot, msg: Message, group: String) -> HandlerResult {
     Ok(())
 }
 
-async fn tag_handler(bot: Bot, msg: Message) -> HandlerResult {
+async fn tag_handler(bot: Bot, msg: Message) -> HandlerResult<()> {
     let collection = get_collection();
 
     // NOTE: tags should not be empty because this handler is only called if there are tags

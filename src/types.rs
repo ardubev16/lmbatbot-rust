@@ -18,4 +18,4 @@ impl From<MongoError> for HandlerError {
     }
 }
 
-pub type HandlerResult = Result<(), HandlerError>;
+pub type HandlerResult<T> = Result<T, HandlerError>;

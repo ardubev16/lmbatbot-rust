@@ -17,7 +17,7 @@ enum FunCommands {
     Bocchi,
 }
 
-async fn bocchi(bot: Bot, msg: Message) -> HandlerResult {
+async fn bocchi(bot: Bot, msg: Message) -> HandlerResult<()> {
     let sticker_set_name =
         env::var("STICKER_SET_NAME").expect("STICKER_SET_NAME not set");
     let sticker_set = bot.get_sticker_set(sticker_set_name).await?;
