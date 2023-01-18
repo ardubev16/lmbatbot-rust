@@ -2,8 +2,10 @@ use crate::types::{HandlerError, HandlerResult};
 use rand::seq::SliceRandom;
 use std::env;
 use teloxide::{
-    dispatching::UpdateHandler, macros::BotCommands, prelude::*,
-    types::InputFile,
+    dispatching::UpdateHandler,
+    prelude::*,
+    types::{BotCommand, InputFile},
+    utils::command::BotCommands,
 };
 
 #[derive(BotCommands, Clone)]
@@ -35,4 +37,8 @@ pub fn handler() -> UpdateHandler<HandlerError> {
     Update::filter_message()
         .filter_command::<FunCommands>()
         .branch(dptree::case![FunCommands::Bocchi].endpoint(bocchi))
+}
+
+pub fn commands() -> Vec<BotCommand> {
+    FunCommands::bot_commands()
 }

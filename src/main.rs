@@ -1,5 +1,5 @@
 use commands::{fun, tag_group};
-use teloxide::{dispatching::UpdateHandler, prelude::*};
+use teloxide::{dispatching::UpdateHandler, prelude::*, types::BotCommand};
 use types::HandlerError;
 
 mod commands;
@@ -14,6 +14,9 @@ async fn main() {
     log::info!("Starting lmbatbot...");
 
     let bot = Bot::from_env();
+    bot.set_my_commands(command_list())
+        .await
+        .expect("Failed to set commands");
 
     Dispatcher::builder(bot, schema())
         // Here you specify initial dependencies that all handlers will receive; they can be
@@ -32,6 +35,13 @@ async fn main() {
         .build()
         .dispatch()
         .await;
+}
+
+fn command_list() -> Vec<BotCommand> {
+    let mut commands = Vec::new();
+    commands.extend(tag_group::commands());
+    commands.extend(fun::commands());
+    commands
 }
 
 fn schema() -> UpdateHandler<HandlerError> {

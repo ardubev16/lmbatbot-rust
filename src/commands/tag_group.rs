@@ -9,7 +9,7 @@ use std::collections::HashSet;
 use teloxide::{
     dispatching::UpdateHandler,
     prelude::*,
-    types::{MessageEntityKind, ParseMode},
+    types::{BotCommand, MessageEntityKind, ParseMode},
     utils::{command::BotCommands, markdown},
 };
 
@@ -235,4 +235,8 @@ pub fn handler() -> UpdateHandler<HandlerError> {
             })
             .endpoint(tag_handler),
         )
+}
+
+pub fn commands() -> Vec<BotCommand> {
+    GroupCommands::bot_commands()
 }
