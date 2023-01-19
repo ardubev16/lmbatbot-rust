@@ -1,4 +1,4 @@
-use commands::{fun, tag_group};
+use commands::{count_words, fun, tag_group};
 use teloxide::{dispatching::UpdateHandler, prelude::*, types::BotCommand};
 use types::HandlerError;
 
@@ -41,11 +41,15 @@ fn command_list() -> Vec<BotCommand> {
     let mut commands = Vec::new();
     commands.extend(tag_group::commands());
     commands.extend(fun::commands());
+    commands.extend(count_words::commands());
     commands
 }
 
 fn schema() -> UpdateHandler<HandlerError> {
     dptree::entry()
+        // FIXME: Find a way to make a handler always run
+        // .branch(Update::filter_message().endpoint(count_words::tracker))
         .branch(tag_group::handler())
         .branch(fun::handler())
+        .branch(count_words::handler())
 }
