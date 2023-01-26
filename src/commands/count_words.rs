@@ -1,6 +1,6 @@
 use crate::{
     db, md_escape,
-    types::{HandlerError, HandlerResult},
+    types::{CommandError, CommandResult},
     utils::send_usage,
 };
 use mongodb::{
@@ -40,7 +40,7 @@ enum WcCommands {
     WordDelete { word: String },
 }
 
-async fn stats(bot: Bot, msg: Message) -> HandlerResult<()> {
+async fn stats(bot: Bot, msg: Message) -> CommandResult<()> {
     let collection = get_collection();
 
     log::debug!("Getting stats for chat {}", msg.chat.id);
@@ -67,7 +67,12 @@ async fn stats(bot: Bot, msg: Message) -> HandlerResult<()> {
     Ok(())
 }
 
-async fn wordadd(bot: Bot, msg: Message, word: String) -> HandlerResult<()> {
+async fn wordadd(bot: Bot, msg: Message, word: String) -> CommandResult<()> {
+    if word.is_empty() {
+        send_usage(&bot, msg.chat.id, "/wordadd <word>").await?;
+        return Ok(());
+    }
+
     let collection = get_collection();
 
     let word = word.to_lowercase();
@@ -93,7 +98,12 @@ async fn wordadd(bot: Bot, msg: Message, word: String) -> HandlerResult<()> {
     Ok(())
 }
 
-async fn worddelete(bot: Bot, msg: Message, word: String) -> HandlerResult<()> {
+async fn worddelete(bot: Bot, msg: Message, word: String) -> CommandResult<()> {
+    if word.is_empty() {
+        send_usage(&bot, msg.chat.id, "/worddelete <word>").await?;
+        return Ok(());
+    }
+
     let collection = get_collection();
 
     let word = word.to_lowercase();
@@ -121,7 +131,7 @@ async fn worddelete(bot: Bot, msg: Message, word: String) -> HandlerResult<()> {
     Ok(())
 }
 
-pub async fn tracker(_: Bot, msg: Message) -> HandlerResult<()> {
+pub async fn tracker(_: Bot, msg: Message) -> CommandResult<()> {
     let collection = get_collection();
 
     let mut words = collection
@@ -157,32 +167,14 @@ pub async fn tracker(_: Bot, msg: Message) -> HandlerResult<()> {
     Ok(())
 }
 
-pub fn handler() -> UpdateHandler<HandlerError> {
+pub fn handler() -> UpdateHandler<CommandError> {
     use dptree::case;
 
     Update::filter_message()
         .filter_command::<WcCommands>()
         .branch(case![WcCommands::Stats].endpoint(stats))
-        .branch(case![WcCommands::WordAdd { word }].endpoint(
-            |bot, msg: Message, word: String| async move {
-                if word.is_empty() {
-                    send_usage(&bot, msg.chat.id, "/wordadd <word>").await?;
-                    Ok(())
-                } else {
-                    wordadd(bot, msg, word).await
-                }
-            },
-        ))
-        .branch(case![WcCommands::WordDelete { word }].endpoint(
-            |bot, msg: Message, word: String| async move {
-                if word.is_empty() {
-                    send_usage(&bot, msg.chat.id, "/worddelete <word>").await?;
-                    Ok(())
-                } else {
-                    worddelete(bot, msg, word).await
-                }
-            },
-        ))
+        .branch(case![WcCommands::WordAdd { word }].endpoint(wordadd))
+        .branch(case![WcCommands::WordDelete { word }].endpoint(worddelete))
 }
 
 pub fn commands() -> Vec<BotCommand> {

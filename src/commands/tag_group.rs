@@ -1,6 +1,6 @@
 use crate::{
     db, md_escape,
-    types::{HandlerError, HandlerResult},
+    types::{CommandError, CommandResult},
     utils::{parse_tagadd_args, send_usage},
 };
 use mongodb::{bson::doc, options::UpdateOptions};
@@ -37,7 +37,7 @@ enum GroupCommands {
     TagDelete { group: String },
 }
 
-async fn taglist(bot: Bot, msg: Message) -> HandlerResult<()> {
+async fn taglist(bot: Bot, msg: Message) -> CommandResult<()> {
     let collection = get_collection();
 
     let mut tags = collection
@@ -66,13 +66,16 @@ async fn taglist(bot: Bot, msg: Message) -> HandlerResult<()> {
     Ok(())
 }
 
-async fn tagadd(
-    bot: Bot,
-    msg: Message,
-    group: String,
-    emoji: String,
-    names: Vec<String>,
-) -> HandlerResult<()> {
+async fn tagadd(bot: Bot, msg: Message, args: String) -> CommandResult<()> {
+    let (group, emoji, names) = match parse_tagadd_args(args) {
+        Ok(args) => args,
+        Err(_) => {
+            send_usage(&bot, msg.chat.id, "/tagadd <group> <emoji> <names...>")
+                .await?;
+            return Ok(());
+        }
+    };
+
     let collection = get_collection();
 
     let group = format!("#{}", group);
@@ -103,7 +106,12 @@ async fn tagadd(
     Ok(())
 }
 
-async fn tagdelete(bot: Bot, msg: Message, group: String) -> HandlerResult<()> {
+async fn tagdelete(bot: Bot, msg: Message, group: String) -> CommandResult<()> {
+    if group.is_empty() {
+        send_usage(&bot, msg.chat.id, "/tagdelete <group>").await?;
+        return Ok(());
+    }
+
     let collection = get_collection();
 
     let group = format!("#{}", group);
@@ -129,10 +137,10 @@ async fn tagdelete(bot: Bot, msg: Message, group: String) -> HandlerResult<()> {
     Ok(())
 }
 
-async fn tag_handler(bot: Bot, msg: Message) -> HandlerResult<()> {
+async fn tag_handler(bot: Bot, msg: Message) -> CommandResult<()> {
     let collection = get_collection();
 
-    // NOTE: tags should not be empty because this handler is only called if there are tags
+    // NOTE: tags is not empty because this handler is only called if there are tags
     let tags = msg
         .parse_entities()
         .expect("Failed to parse entities")
@@ -161,7 +169,7 @@ async fn tag_handler(bot: Bot, msg: Message) -> HandlerResult<()> {
         });
     }
     if tag_list.is_empty() {
-        return Err(HandlerError::Custom("No tags found.".into()));
+        return Err(CommandError::Custom("No tags found.".into()));
     }
 
     let sender = msg.from().unwrap().username.as_ref().expect("No username");
@@ -187,42 +195,14 @@ async fn tag_handler(bot: Bot, msg: Message) -> HandlerResult<()> {
     Ok(())
 }
 
-pub fn handler() -> UpdateHandler<HandlerError> {
+pub fn handler() -> UpdateHandler<CommandError> {
     use dptree::case;
 
     let command_handler = dptree::entry()
         .filter_command::<GroupCommands>()
         .branch(case![GroupCommands::TagList].endpoint(taglist))
-        .branch(case![GroupCommands::TagAdd { args }].endpoint(
-            |bot, msg, args| async move {
-                match parse_tagadd_args(args) {
-                    Ok((group, emoji, names)) => {
-                        tagadd(bot, msg, group, emoji, names).await
-                    }
-                    Err(_) => {
-                        send_usage(
-                            &bot,
-                            msg.chat.id,
-                            "/tagadd <name>\n\
-                             <emoji>\n\
-                             <@tag1> <@tag2> ...",
-                        )
-                        .await?;
-                        Ok(())
-                    }
-                }
-            },
-        ))
-        .branch(case![GroupCommands::TagDelete { group }].endpoint(
-            |bot, msg: Message, group: String| async move {
-                if group.is_empty() {
-                    send_usage(&bot, msg.chat.id, "/tagdelete <group>").await?;
-                    Ok(())
-                } else {
-                    tagdelete(bot, msg, group).await
-                }
-            },
-        ));
+        .branch(case![GroupCommands::TagAdd { args }].endpoint(tagadd))
+        .branch(case![GroupCommands::TagDelete { group }].endpoint(tagdelete));
 
     Update::filter_message()
         .filter(|msg: Message| msg.chat.is_group() || msg.chat.is_supergroup())

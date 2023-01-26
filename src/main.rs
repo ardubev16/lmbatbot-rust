@@ -1,6 +1,6 @@
 use commands::{count_words, fun, tag_group};
 use teloxide::{dispatching::UpdateHandler, prelude::*, types::BotCommand};
-use types::HandlerError;
+use types::CommandError;
 
 mod commands;
 mod db;
@@ -23,14 +23,9 @@ async fn main() {
         // database connections, configurations, and other auxiliary arguments. It is similar to
         // `actix_web::Extensions`.
         // .dependencies(dptree::deps![parameters])
-        // If no handler succeeded to handle an update, this closure will be called.
-        .default_handler(|upd| async move {
-            log::warn!("Unhandled update: {:?}", upd);
-        })
-        // If the dispatcher fails for some reason, execute this handler.
-        .error_handler(LoggingErrorHandler::with_custom_text(
-            "An error has occurred in the dispatcher",
-        ))
+        // .default_handler(|upd| async move {
+        //     log::warn!("Unhandled update: {:?}", upd);
+        // })
         .enable_ctrlc_handler()
         .build()
         .dispatch()
@@ -45,7 +40,7 @@ fn command_list() -> Vec<BotCommand> {
     commands
 }
 
-fn schema() -> UpdateHandler<HandlerError> {
+fn schema() -> UpdateHandler<CommandError> {
     dptree::entry()
         // FIXME: Find a way to make a handler always run
         // .branch(Update::filter_message().endpoint(count_words::tracker))
